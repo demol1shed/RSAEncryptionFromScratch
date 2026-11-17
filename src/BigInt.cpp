@@ -445,3 +445,38 @@ BigInt BigInt::ModInverse(const BigInt &a, const BigInt &m) {
     throw std::domain_error("BigInt::ModInverse: not invertible");
   return t0 % m;
 }
+
+BigInt BigInt::FromBytes(const std::vector<uint8_t> &bytes) {
+  BigInt r;
+  r.limbs.assign((bytes.size() + 3) / 4, 0);
+  for (size_t i = 0; i < bytes.size(); ++i) {
+    size_t pos = bytes.size() - 1 - i; // position from the least significant
+    r.limbs[pos / 4] |= static_cast<uint32_t>(bytes[i]) << (8 * (pos % 4));
+  }
+  if (r.limbs.empty())
+    r.limbs.push_back(0);
+  r.trim();
+  return r;
+}
+
+std::vector<uint8_t> BigInt::ToBytes() const {
+  if (isNegative)
+    throw std::domain_error("BigInt::ToBytes: negative value");
+  size_t length = (BitLength() + 7) / 8;
+  return ToBytes(length);
+}
+
+std::vector<uint8_t> BigInt::ToBytes(size_t length) const {
+  if (isNegative)
+    throw std::domain_error("BigInt::ToBytes: negative value");
+  if ((BitLength() + 7) / 8 > length)
+    throw std::length_error("BigInt::ToBytes: value does not fit");
+  std::vector<uint8_t> out(length, 0);
+  for (size_t pos = 0; pos < length; ++pos) {
+    size_t limb = pos / 4;
+    if (limb >= limbs.size())
+      break;
+    out[length - 1 - pos] = static_cast<uint8_t>(limbs[limb] >> (8 * (pos % 4)));
+  }
+  return out;
+}

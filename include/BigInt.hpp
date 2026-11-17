@@ -71,6 +71,15 @@ public:
 
   bool IsZero() const;
 
+  // big-endian unsigned bytes <-> non-negative BigInt
+  static BigInt FromBytes(const std::vector<uint8_t> &bytes);
+  // minimal big-endian magnitude (empty for zero); throws std::domain_error
+  // if negative
+  std::vector<uint8_t> ToBytes() const;
+  // left-padded with zeros to exactly `length` bytes; throws
+  // std::length_error if the value does not fit, std::domain_error if negative
+  std::vector<uint8_t> ToBytes(size_t length) const;
+
   // debug and output
   std::string ToHexString() const;
   friend std::ostream &operator<<(std::ostream &os, const BigInt &num);
