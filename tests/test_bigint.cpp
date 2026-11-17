@@ -196,3 +196,75 @@ TEST(ShiftsAndBits) {
   CHECK(!BigInt(5).TestBit(500));
   CHECK(BigInt(7).IsOdd() && !BigInt(8).IsOdd() && !BigInt(0).IsOdd());
 }
+
+// ---- number theory ----
+TEST(ModExpSmall) {
+  CHECK(BigInt::ModExp(BigInt(4), BigInt(13), BigInt(497)) == BigInt(445));
+  CHECK(BigInt::ModExp(BigInt(2), BigInt(10), BigInt(1000)) == BigInt(24));
+  CHECK(BigInt::ModExp(BigInt(5), BigInt(0), BigInt(7)) == BigInt(1));
+  CHECK(BigInt::ModExp(BigInt(5), BigInt(0), BigInt(1)) == BigInt(0));
+  CHECK(BigInt::ModExp(BigInt(0), BigInt(5), BigInt(7)) == BigInt(0));
+  CHECK(BigInt::ModExp(BigInt(-2), BigInt(3), BigInt(5)) == BigInt(2));
+  CHECK_THROWS(BigInt::ModExp(BigInt(2), BigInt(3), BigInt(0)),
+               std::domain_error);
+  CHECK_THROWS(BigInt::ModExp(BigInt(2), BigInt(-3), BigInt(5)),
+               std::domain_error);
+}
+
+TEST(ModExpMatchesNaive) {
+  std::mt19937_64 rng(4);
+  for (int i = 0; i < 300; ++i) {
+    uint64_t b = rng() % 1000000, e = rng() % 40, m = 1 + rng() % 1000000;
+    u128 expected = 1 % m;
+    for (uint64_t k = 0; k < e; ++k)
+      expected = expected * b % m;
+    CHECK(BigInt::ModExp(BigInt(static_cast<int64_t>(b)),
+                         BigInt(static_cast<int64_t>(e)),
+                         BigInt(static_cast<int64_t>(m))) ==
+          B(static_cast<i128>(expected)));
+  }
+}
+
+TEST(ModExpFermat) {
+  // 2^127 - 1 is a Mersenne prime: a^(p-1) == 1 (mod p)
+  BigInt p = (BigInt(1) << 127) - BigInt(1);
+  for (int a : {2, 3, 5, 12345})
+    CHECK(BigInt::ModExp(BigInt(a), p - BigInt(1), p) == BigInt(1));
+}
+
+TEST(GcdCases) {
+  CHECK(BigInt::Gcd(BigInt(48), BigInt(18)) == BigInt(6));
+  CHECK(BigInt::Gcd(BigInt(-48), BigInt(18)) == BigInt(6));
+  CHECK(BigInt::Gcd(BigInt(0), BigInt(7)) == BigInt(7));
+  CHECK(BigInt::Gcd(BigInt(7), BigInt(0)) == BigInt(7));
+  CHECK(BigInt::Gcd(BigInt(0), BigInt(0)) == BigInt(0));
+  CHECK(BigInt::Gcd(BigInt(17), BigInt(31)) == BigInt(1));
+  BigInt g("123456789abcdef");
+  CHECK(BigInt::Gcd(g * BigInt("fedcba987"), g * BigInt("1234567891")) % g ==
+        BigInt(0));
+}
+
+TEST(ModInverseCases) {
+  CHECK(BigInt::ModInverse(BigInt(3), BigInt(11)) == BigInt(4));
+  CHECK(BigInt::ModInverse(BigInt(17), BigInt(3120)) == BigInt(2753));
+  CHECK(BigInt::ModInverse(BigInt(-3), BigInt(11)) == BigInt(7));
+  CHECK(BigInt::ModInverse(BigInt(14), BigInt(11)) == BigInt(4)); // a > m
+  CHECK(BigInt::ModInverse(BigInt(5), BigInt(1)) == BigInt(0));
+  CHECK_THROWS(BigInt::ModInverse(BigInt(4), BigInt(8)), std::domain_error);
+  CHECK_THROWS(BigInt::ModInverse(BigInt(0), BigInt(7)), std::domain_error);
+  CHECK_THROWS(BigInt::ModInverse(BigInt(3), BigInt(0)), std::domain_error);
+  CHECK_THROWS(BigInt::ModInverse(BigInt(3), BigInt(-7)), std::domain_error);
+}
+
+TEST(ModInverseLarge) {
+  BigInt p = (BigInt(1) << 127) - BigInt(1);
+  std::mt19937_64 rng(5);
+  for (int i = 0; i < 100; ++i) {
+    BigInt a(RandomHex(rng, 1 + rng() % 40));
+    if ((a % p).IsZero())
+      continue;
+    BigInt inv = BigInt::ModInverse(a, p);
+    CHECK(inv >= BigInt(0) && inv < p);
+    CHECK((a * inv) % p == BigInt(1));
+  }
+}

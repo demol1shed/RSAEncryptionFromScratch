@@ -392,3 +392,56 @@ std::string BigInt::ToHexString() const {
 std::ostream &operator<<(std::ostream &os, const BigInt &num) {
   return os << num.ToHexString();
 }
+
+BigInt BigInt::ModExp(const BigInt &base, const BigInt &exp,
+                      const BigInt &mod) {
+  if (mod.IsZero())
+    throw std::domain_error("BigInt::ModExp: zero modulus");
+  if (exp.isNegative)
+    throw std::domain_error("BigInt::ModExp: negative exponent");
+
+  BigInt result(1);
+  result %= mod; // 0 when |mod| == 1
+  BigInt b = base % mod;
+  // right-to-left square and multiply
+  const size_t bits = exp.BitLength();
+  for (size_t i = 0; i < bits; ++i) {
+    if (exp.TestBit(i))
+      result = (result * b) % mod;
+    if (i + 1 < bits)
+      b = (b * b) % mod;
+  }
+  return result;
+}
+
+BigInt BigInt::Gcd(BigInt a, BigInt b) {
+  a.isNegative = false;
+  b.isNegative = false;
+  while (!b.IsZero()) {
+    BigInt r = a % b;
+    a = std::move(b);
+    b = std::move(r);
+  }
+  return a;
+}
+
+BigInt BigInt::ModInverse(const BigInt &a, const BigInt &m) {
+  if (m.isNegative || m.IsZero())
+    throw std::domain_error("BigInt::ModInverse: modulus must be positive");
+
+  // invariant: r_i == t_i * a (mod m)
+  BigInt r0 = m, r1 = a % m;
+  BigInt t0(0), t1(1);
+  while (!r1.IsZero()) {
+    BigInt q = r0 / r1;
+    BigInt r2 = r0 - q * r1;
+    BigInt t2 = t0 - q * t1;
+    r0 = std::move(r1);
+    r1 = std::move(r2);
+    t0 = std::move(t1);
+    t1 = std::move(t2);
+  }
+  if (r0 != BigInt(1))
+    throw std::domain_error("BigInt::ModInverse: not invertible");
+  return t0 % m;
+}

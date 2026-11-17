@@ -58,12 +58,15 @@ public:
   bool TestBit(size_t index) const; // bit of the magnitude
   bool IsOdd() const;
 
-  // a^e (mod m)
+  // a^e (mod m), result in [0, |m|). Throws std::domain_error if m is zero
+  // or e is negative.
   static BigInt ModExp(const BigInt &base, const BigInt &exp,
                        const BigInt &mod);
 
+  // non-negative; Gcd(0, 0) == 0
   static BigInt Gcd(BigInt a, BigInt b);
-  // extended euclidean
+  // x with a*x == 1 (mod m), x in [0, m). Extended Euclid. Throws
+  // std::domain_error if m <= 0 or gcd(a, m) != 1.
   static BigInt ModInverse(const BigInt &a, const BigInt &m);
 
   bool IsZero() const;
