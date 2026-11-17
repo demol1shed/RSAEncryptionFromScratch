@@ -1,14 +1,15 @@
 #pragma once
 #include <compare>
 #include <cstdint>
-#include <iostream>
 #include <ostream>
 #include <string>
 #include <vector>
 
 class BigInt {
 private:
-  std::vector<uint32_t> limbs; // (little-endian)
+  // Magnitude, little-endian. Invariant: never empty, no high zero limbs
+  // (zero is {0}), and zero is never negative.
+  std::vector<uint32_t> limbs{0};
   bool isNegative{false};
 
   // trim leading zeros
@@ -18,7 +19,9 @@ public:
   BigInt() = default;
   // avoid compiler automatic type conversion
   explicit BigInt(int64_t val);
-  explicit BigInt(const std::string &hex_str);
+  // hex digits with optional leading '-'; throws std::invalid_argument on
+  // empty or malformed input
+  explicit BigInt(const std::string &hexStr);
 
   // operator overloading for bigint types
   std::strong_ordering operator<=>(const BigInt &other) const;
@@ -30,8 +33,7 @@ public:
 
   friend BigInt operator+(BigInt leftHandSide, const BigInt &rightHandSide);
   friend BigInt operator-(BigInt leftHandSide, const BigInt &rightHandSide);
-  friend BigInt operator*(const BigInt leftHandSide,
-                          const BigInt &rightHandSide);
+  friend BigInt operator*(BigInt leftHandSide, const BigInt &rightHandSide);
 
   BigInt operator%(const BigInt &mod) const;
 
@@ -39,9 +41,11 @@ public:
   static BigInt ModExp(const BigInt &base, const BigInt &exp,
                        const BigInt &mod);
 
-  static BigInt gcd(BigInt a, BigInt b);
+  static BigInt Gcd(BigInt a, BigInt b);
   // extended euclidean
   static BigInt ModInverse(const BigInt &a, const BigInt &m);
+
+  bool IsZero() const;
 
   // debug and output
   std::string ToHexString() const;

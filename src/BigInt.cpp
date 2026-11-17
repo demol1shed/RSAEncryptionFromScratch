@@ -1,53 +1,53 @@
 #include "BigInt.hpp"
+#include <algorithm>
 #include <cstdint>
-#include <cstdlib>
+#include <stdexcept>
+#include <string>
 
 BigInt::BigInt(int64_t val) {
   isNegative = (val < 0);
-  uint64_t absVal = (val == INT64_MIN) ? static_cast<uint64_t>(INT64_MAX) + 1
-                                       : static_cast<uint64_t>(std::abs(val));
+  // two's complement negation in unsigned arithmetic is well defined for
+  // every int64_t, including INT64_MIN
+  uint64_t absVal = isNegative ? 0 - static_cast<uint64_t>(val)
+                               : static_cast<uint64_t>(val);
 
-  if (absVal == 0) {
-    limbs.push_back(0);
-    return;
-  }
-
-  while (absVal > 0) {
-    limbs.push_back(static_cast<uint32_t>(
-        absVal & 0xFFFFFFFF)); // masking using 0xFFFFFFFF so that top 32 bits
-                               // are all zeroes and the bottom 32 bits are
-                               // exactly as they shoudl be
-
-    absVal >>= 32; // after masking shift the val 32 bits to the right, carrying
-                   // the rest of the 32 bits to be pushed to the vector
-  }
+  limbs.clear();
+  do {
+    limbs.push_back(static_cast<uint32_t>(absVal & 0xFFFFFFFF));
+    absVal >>= 32;
+  } while (absVal > 0);
 }
 
+namespace {
+uint32_t HexDigitValue(char c) {
+  if (c >= '0' && c <= '9')
+    return static_cast<uint32_t>(c - '0');
+  if (c >= 'a' && c <= 'f')
+    return static_cast<uint32_t>(c - 'a' + 10);
+  if (c >= 'A' && c <= 'F')
+    return static_cast<uint32_t>(c - 'A' + 10);
+  throw std::invalid_argument("BigInt: invalid hex digit");
+}
+} // namespace
+
 BigInt::BigInt(const std::string &hexStr) {
-  if (hexStr.empty()) {
-    limbs.push_back(0);
-    return;
-  }
+  size_t startIdx = hexStr.starts_with('-') ? 1 : 0;
+  if (hexStr.size() == startIdx)
+    throw std::invalid_argument("BigInt: empty hex string");
 
-  size_t startIdx = 0;
-
-  if (hexStr.starts_with('-')) {
-    isNegative = true;
-    startIdx = 1;
-  }
-
-  // parsing right to left to maintain little-endian order
-  for (int i = hexStr.length(); i > static_cast<int>(startIdx); i -= 8) {
-    int chunkStart = std::max(static_cast<int>(startIdx), i - 8);
-    int chunkLength = i - chunkStart;
-
-    std::string chunk = hexStr.substr(chunkStart, chunkLength);
-
-    // converts hex str chunk into 32 bit integer, std::stoul converts to
-    // unsigned long base 16. casted to uint32_t to be explicit.
-    uint32_t limbVal = static_cast<uint32_t>(std::stoul(chunk, nullptr, 16));
+  limbs.clear();
+  // parse right to left, 8 hex digits (32 bits) per limb, so limbs end up in
+  // little-endian order
+  for (size_t end = hexStr.size(); end > startIdx;) {
+    size_t chunkStart = end - startIdx > 8 ? end - 8 : startIdx;
+    uint32_t limbVal = 0;
+    for (size_t i = chunkStart; i < end; ++i)
+      limbVal = (limbVal << 4) | HexDigitValue(hexStr[i]);
     limbs.push_back(limbVal);
+    end = chunkStart;
   }
+
+  isNegative = (startIdx == 1);
   trim();
 }
 
@@ -59,4 +59,30 @@ void BigInt::trim() {
   if (limbs.size() == 1 && limbs[0] == 0) {
     isNegative = false;
   }
+}
+
+bool BigInt::IsZero() const { return limbs.size() == 1 && limbs[0] == 0; }
+
+bool BigInt::operator==(const BigInt &other) const {
+  return isNegative == other.isNegative && limbs == other.limbs;
+}
+
+std::string BigInt::ToHexString() const {
+  static const char digits[] = "0123456789abcdef";
+  std::string out;
+  for (size_t i = limbs.size(); i-- > 0;) {
+    for (int shift = 28; shift >= 0; shift -= 4) {
+      char c = digits[(limbs[i] >> shift) & 0xF];
+      if (out.empty() && c == '0')
+        continue; // skip leading zeros
+      out.push_back(c);
+    }
+  }
+  if (out.empty())
+    return "0";
+  return isNegative ? "-" + out : out;
+}
+
+std::ostream &operator<<(std::ostream &os, const BigInt &num) {
+  return os << num.ToHexString();
 }
