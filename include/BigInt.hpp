@@ -1,5 +1,6 @@
 #pragma once
 #include <compare>
+#include <cstddef>
 #include <cstdint>
 #include <ostream>
 #include <string>
@@ -14,6 +15,8 @@ private:
 
   // trim leading zeros
   void trim();
+  // *this += (otherNegative ? -other : other); safe when &other == this
+  void AddSigned(const BigInt &other, bool otherNegative);
 
 public:
   BigInt() = default;
@@ -35,7 +38,25 @@ public:
   friend BigInt operator-(BigInt leftHandSide, const BigInt &rightHandSide);
   friend BigInt operator*(BigInt leftHandSide, const BigInt &rightHandSide);
 
+  BigInt operator-() const;
+
+  // Euclidean division: a = q * b + r with 0 <= r < |b|. Throws
+  // std::domain_error if b is zero.
+  static void DivMod(const BigInt &a, const BigInt &b, BigInt &quotient,
+                     BigInt &remainder);
+  BigInt operator/(const BigInt &divisor) const;
+  // result is always in [0, |mod|); throws std::domain_error if mod is zero
   BigInt operator%(const BigInt &mod) const;
+  BigInt &operator/=(const BigInt &divisor);
+  BigInt &operator%=(const BigInt &mod);
+
+  // shift the magnitude (sign is kept; >> truncates toward zero)
+  BigInt operator<<(size_t bits) const;
+  BigInt operator>>(size_t bits) const;
+
+  size_t BitLength() const;         // 0 for zero
+  bool TestBit(size_t index) const; // bit of the magnitude
+  bool IsOdd() const;
 
   // a^e (mod m)
   static BigInt ModExp(const BigInt &base, const BigInt &exp,
