@@ -26,6 +26,9 @@ ctest --test-dir build --output-on-failure   # all tests
 - No external libraries (tests included).
 - Do not describe or present this code as secure; it is textbook RSA without padding.
 
-## Commit discipline
+## Git workflow
 
 Keep the commit history clean. Prefer small, descriptive commits at logical points over one huge commit: one commit is one logical change, and refactors, behavior changes and tests go in separate commits. The goal is that a reviewer can digest the code step by step. The subject line describes the change; the body explains why.
+
+- Never commit or push directly to `main`. Work on a topic branch named `<type>/<short-description>` (e.g. `docs/architecture-split`), push it, open a PR with `gh pr create` (a Summary and a Test plan), and merge through the PR. Delete the branch after merging.
+- Commit messages and PR descriptions are written in English.
